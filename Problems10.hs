@@ -233,9 +233,11 @@ smallStep (Catch e y n, acc) =
       _ -> (Catch e' y n, acc')
 
 steps :: (Expr, Int) -> [(Expr, Int)]
-steps s = case smallStep s of
-            (e, acc) | e == fst s -> [s]
-                     | otherwise -> s : steps (e, acc)
+steps s = 
+  let (e, acc) = smallStep s
+  in if e == fst s 
+     then [s] 
+     else s : steps (e, acc)
 
 prints :: Show a => [a] -> IO ()
 prints = mapM_ print
