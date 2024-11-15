@@ -2,8 +2,6 @@
 
 module Problems10 where
 
-import Data.Bifunctor (first)
-
 {-------------------------------------------------------------------------------
 
 CS:3820 Fall 2024 Problem Set 10
@@ -211,52 +209,38 @@ bubble; this won't *just* be `Throw` and `Catch.
 
 -------------------------------------------------------------------------------}
 
-smallStep :: (Expr, Expr) -> Maybe (Expr, Expr)
+smallStep :: (Expr, Int) -> (Expr, Int)
+smallStep (Const v, acc) = (Const v, acc)
+smallStep (Plus (Const n1) (Const n2), acc) = (Const (n1 + n2), acc)
+smallStep (Plus (Const n1) e2, acc) = 
+  let (e2', acc') = smallStep (e2, acc) in (Plus (Const n1) e2', acc')
+smallStep (Plus e1 e2, acc) = 
+  let (e1', acc') = smallStep (e1, acc) in (Plus e1' e2, acc')
+smallStep (Var x, acc) = (Var x, acc)
+smallStep (Lam x e, acc) = (Lam x e, acc)
+smallStep (App (Lam x e) v, acc) | isValue v = (subst x v e, acc)
+smallStep (App e1 e2, acc) = 
+  let (e1', acc') = smallStep (e1, acc) in (App e1' e2, acc')
+smallStep (Store e, acc) = 
+  let (e', acc') = smallStep (e, acc) in (Store e', acc')
+smallStep (Recall, acc) = (Const acc, acc)
+smallStep (Throw e, acc) = 
+  let (e', acc') = smallStep (e, acc) in (Throw e', acc')
+smallStep (Catch e y n, acc) = 
+  let (e', acc') = smallStep (e, acc) in 
+    case e' of
+      Throw w -> (subst y w n, acc')
+      _ -> (Catch e' y n, acc')
 
-smallStep (Plus (Const i) (Const j), acc) = Just (Const (i + j), acc)
-smallStep (Plus e1 e2, acc)
-  | not (isValue e1) = fmap (first (`Plus` e2)) (smallStep (e1, acc))
-  | not (isValue e2) = fmap (first (Plus e1)) (smallStep (e2, acc))
-  | otherwise = Nothing
-
-smallStep (App (Lam x e) v, acc)
-  | isValue v = Just (subst x v e, acc)
-smallStep (App e1 e2, acc)
-  | not (isValue e1) = fmap (first (`App` e2)) (smallStep (e1, acc))
-  | not (isValue e2) = fmap (first (App e1)) (smallStep (e2, acc))
-  | otherwise = Nothing
-
-smallStep (Store e, acc)
-  | isValue e = Just (Const 0, e)
-  | otherwise = fmap (first Store) (smallStep (e, acc))
-
-smallStep (Recall, acc) = Just (acc, acc)
-
-smallStep (Throw e, acc)
-  | isValue e = Just (Throw e, acc)
-  | otherwise = fmap (first Throw) (smallStep (e, acc))
-
-smallStep (Catch m y n, acc)
-  | not (isValue m) = case smallStep (m, acc) of
-      Just (Throw w, acc') -> Just (subst y w n, acc')
-      Just (m', acc') -> Just (Catch m' y n, acc')
-      Nothing -> Nothing
-  | otherwise = Just (m, acc)
-
-smallStep (Plus (Throw e) _, acc) = Just (Throw e, acc)
-smallStep (App (Throw e) _, acc) = Just (Throw e, acc)
-smallStep (Store (Throw e), acc) = Just (Throw e, acc)
-smallStep (Plus _ (Throw e), acc) = Just (Throw e, acc)
-smallStep (App _ (Throw e), acc) = Just (Throw e, acc)
-
-smallStep _ = Nothing
-
-steps :: (Expr, Expr) -> [(Expr, Expr)]
+steps :: (Expr, Int) -> [(Expr, Int)]
 steps s = case smallStep s of
-            Nothing -> [s]
-            Just s' -> s : steps s'
+            (e, acc) | e == fst s -> [s]
+                     | otherwise -> s : steps (e, acc)
 
 prints :: Show a => [a] -> IO ()
 prints = mapM_ print
+
+
+
 
 
