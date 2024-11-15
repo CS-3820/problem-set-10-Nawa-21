@@ -112,10 +112,8 @@ subst x m (Store n) = Store (subst x m n)
 subst _ _ Recall = Recall
 subst x m (Throw n) = Throw (subst x m n)
 subst x m (Catch n y n')
-  | x == y = Catch (subst x m n) y n'
+  | x == y = Catch (subst x m n) y n'  
   | otherwise = Catch (subst x m n) y (subst x m n')
-
-
 
 
 {-------------------------------------------------------------------------------
@@ -236,3 +234,12 @@ smallStep (Catch m y n, acc)
       Just (Throw w, acc') -> Just (subst y w n, acc')
       Just (m', acc') -> Just (Catch m' y n, acc')
       Nothing -> Nothing
+
+
+steps :: (Expr, Expr) -> [(Expr, Expr)]
+steps s = case smallStep s of
+            Nothing -> [s]
+            Just s' -> s : steps s'
+
+prints :: Show a => [a] -> IO ()
+prints = mapM_ print
