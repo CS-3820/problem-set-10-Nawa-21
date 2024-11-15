@@ -214,17 +214,11 @@ smallStep (Plus (Const i) (Const j), acc) = Just (Const (i + j), acc)
 smallStep (Plus e1 e2, acc) 
   | not (isValue e1) = fmap (\(e1', acc') -> (Plus e1' e2, acc')) (smallStep (e1, acc))
   | isValue e1 && not (isValue e2) = fmap (\(e2', acc') -> (Plus e1 e2', acc')) (smallStep (e2, acc))
-  | otherwise = case e1 of
-      Throw ex -> Just (Throw ex, acc)
-      _ -> Nothing
 
 smallStep (App (Lam x e) v, acc) | isValue v = Just (subst x v e, acc)
 smallStep (App e1 e2, acc) 
   | not (isValue e1) = fmap (\(e1', acc') -> (App e1' e2, acc')) (smallStep (e1, acc))
   | isValue e1 && not (isValue e2) = fmap (\(e2', acc') -> (App e1 e2', acc')) (smallStep (e2, acc))
-  | otherwise = case e1 of
-      Throw ex -> Just (Throw ex, acc)
-      _ -> Nothing
 
 smallStep (Store e, acc) 
   | isValue e = Just (Const 0, e)
