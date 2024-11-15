@@ -210,20 +210,26 @@ bubble; this won't *just* be `Throw` and `Catch.
 -------------------------------------------------------------------------------}
 
 smallStep :: (Expr, Expr) -> Maybe (Expr, Expr)
-
 smallStep (Plus (Const i) (Const j), acc) = Just (Const (i + j), acc)
-smallStep (Plus e1 e2, acc)
+smallStep (Plus e1 e2, acc) 
   | not (isValue e1) = fmap (\(e1', acc') -> (Plus e1' e2, acc')) (smallStep (e1, acc))
-  | otherwise         = fmap (\(e2', acc') -> (Plus e1 e2', acc')) (smallStep (e2, acc))
+  | isValue e1 && not (isValue e2) = fmap (\(e2', acc') -> (Plus e1 e2', acc')) (smallStep (e2, acc))
+  | otherwise = case e1 of
+      Throw ex -> Just (Throw ex, acc)
+      _ -> Nothing
 
 smallStep (App (Lam x e) v, acc) | isValue v = Just (subst x v e, acc)
-smallStep (App e1 e2, acc)
+smallStep (App e1 e2, acc) 
   | not (isValue e1) = fmap (\(e1', acc') -> (App e1' e2, acc')) (smallStep (e1, acc))
-  | otherwise         = fmap (\(e2', acc') -> (App e1 e2', acc')) (smallStep (e2, acc))
+  | isValue e1 && not (isValue e2) = fmap (\(e2', acc') -> (App e1 e2', acc')) (smallStep (e2, acc))
+  | otherwise = case e1 of
+      Throw ex -> Just (Throw ex, acc)
+      _ -> Nothing
 
-smallStep (Store e, acc)
+smallStep (Store e, acc) 
   | isValue e = Just (Const 0, e)
   | otherwise = fmap (\(e', acc') -> (Store e', acc')) (smallStep (e, acc))
+
 smallStep (Recall, acc) = Just (acc, acc)
 
 smallStep (Throw e, acc)
@@ -234,27 +240,5 @@ smallStep (Catch m y n, acc)
   | isValue m = Just (m, acc)
   | otherwise = case smallStep (m, acc) of
       Just (Throw w, acc') -> Just (subst y w n, acc')
-      Just (m', acc')      -> Just (Catch m' y n, acc')
-      Nothing              -> Nothing
-
-smallStep (op@(Plus _ _), acc) | isThrow op = extractThrow op acc
-smallStep (op@(App _ _), acc)  | isThrow op = extractThrow op acc
-smallStep (Store (Throw e), acc)            = Just (Throw e, acc)
-
-smallStep _ = Nothing
-
-isThrow :: Expr -> Bool
-isThrow (Plus (Throw _) _) = True
-isThrow (Plus _ (Throw _)) = True
-isThrow (App (Throw _) _)  = True
-isThrow (App _ (Throw _))  = True
-isThrow _                  = False
-
-extractThrow :: Expr -> Expr -> Maybe (Expr, Expr)
-extractThrow (Plus (Throw e) _) acc = Just (Throw e, acc)
-extractThrow (Plus _ (Throw e)) acc = Just (Throw e, acc)
-extractThrow (App (Throw e) _)  acc = Just (Throw e, acc)
-extractThrow (App _ (Throw e))  acc = Just (Throw e, acc)
-extractThrow _ acc                   = Nothing
-
-
+      Just (m', acc') -> Just (Catch m' y n, acc')
+      Nothing -> Nothing
