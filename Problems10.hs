@@ -216,12 +216,15 @@ smallStep :: (Expr, Expr) -> Maybe (Expr, Expr)
 smallStep (Plus (Const i) (Const j), acc) = Just (Const (i + j), acc)
 smallStep (Plus e1 e2, acc)
   | not (isValue e1) = fmap (first (`Plus` e2)) (smallStep (e1, acc))
-  | otherwise = fmap (first (`Plus` e1)) (smallStep (e2, acc))
+  | not (isValue e2) = fmap (first (Plus e1)) (smallStep (e2, acc))
+  | otherwise = Nothing
 
-smallStep (App (Lam x e) v, acc) | isValue v = Just (subst x v e, acc)
+smallStep (App (Lam x e) v, acc)
+  | isValue v = Just (subst x v e, acc)
 smallStep (App e1 e2, acc)
   | not (isValue e1) = fmap (first (`App` e2)) (smallStep (e1, acc))
-  | otherwise = fmap (first (`App` e1)) (smallStep (e2, acc))
+  | not (isValue e2) = fmap (first (App e1)) (smallStep (e2, acc))
+  | otherwise = Nothing
 
 smallStep (Store e, acc)
   | isValue e = Just (Const 0, e)
@@ -241,10 +244,10 @@ smallStep (Catch m y n, acc)
   | otherwise = Just (m, acc)
 
 smallStep (Plus (Throw e) _, acc) = Just (Throw e, acc)
-smallStep (Plus _ (Throw e), acc) = Just (Throw e, acc)
 smallStep (App (Throw e) _, acc) = Just (Throw e, acc)
-smallStep (App _ (Throw e), acc) = Just (Throw e, acc)
 smallStep (Store (Throw e), acc) = Just (Throw e, acc)
+smallStep (Plus _ (Throw e), acc) = Just (Throw e, acc)
+smallStep (App _ (Throw e), acc) = Just (Throw e, acc)
 
 smallStep _ = Nothing
 
@@ -255,3 +258,5 @@ steps s = case smallStep s of
 
 prints :: Show a => [a] -> IO ()
 prints = mapM_ print
+
+
