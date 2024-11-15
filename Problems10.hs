@@ -1,5 +1,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
+
 module Problems10 where
+
+import Data.Bifunctor (first)
 
 {-------------------------------------------------------------------------------
 
@@ -47,6 +50,7 @@ deriving instance Show Expr
 -- Here's a show instance that tries to be a little more readable than the
 -- default Haskell one; feel free to uncomment it (but then, be sure to comment
 -- out the `deriving instance` line above).
+
 
 {-
 instance Show Expr where
@@ -211,30 +215,30 @@ smallStep :: (Expr, Expr) -> Maybe (Expr, Expr)
 
 smallStep (Plus (Const i) (Const j), acc) = Just (Const (i + j), acc)
 smallStep (Plus e1 e2, acc)
-  | not (isValue e1) = fmap (\(e1', acc') -> (Plus e1' e2, acc')) (smallStep (e1, acc))
-  | otherwise = fmap (\(e2', acc') -> (Plus e1 e2', acc')) (smallStep (e2, acc))
+  | not (isValue e1) = fmap (first (`Plus` e2)) (smallStep (e1, acc))
+  | otherwise = fmap (first (`Plus` e1)) (smallStep (e2, acc))
 
 smallStep (App (Lam x e) v, acc) | isValue v = Just (subst x v e, acc)
 smallStep (App e1 e2, acc)
-  | not (isValue e1) = fmap (\(e1', acc') -> (App e1' e2, acc')) (smallStep (e1, acc))
-  | otherwise = fmap (\(e2', acc') -> (App e1 e2', acc')) (smallStep (e2, acc))
+  | not (isValue e1) = fmap (first (`App` e2)) (smallStep (e1, acc))
+  | otherwise = fmap (first (`App` e1)) (smallStep (e2, acc))
 
 smallStep (Store e, acc)
-  | isValue e = Just (Const 0, e) 
-  | otherwise = fmap (\(e', acc') -> (Store e', acc')) (smallStep (e, acc))
+  | isValue e = Just (Const 0, e)
+  | otherwise = fmap (first Store) (smallStep (e, acc))
 
 smallStep (Recall, acc) = Just (acc, acc)
 
 smallStep (Throw e, acc)
-  | isValue e = Just (Throw e, acc)  
-  | otherwise = fmap (\(e', acc') -> (Throw e', acc')) (smallStep (e, acc))
+  | isValue e = Just (Throw e, acc)
+  | otherwise = fmap (first Throw) (smallStep (e, acc))
 
 smallStep (Catch m y n, acc)
   | not (isValue m) = case smallStep (m, acc) of
-      Just (Throw w, acc') -> Just (subst y w n, acc')  
-      Just (m', acc') -> Just (Catch m' y n, acc')     
+      Just (Throw w, acc') -> Just (subst y w n, acc')
+      Just (m', acc') -> Just (Catch m' y n, acc')
       Nothing -> Nothing
-  | otherwise = Just (m, acc)  
+  | otherwise = Just (m, acc)
 
 smallStep (Plus (Throw e) _, acc) = Just (Throw e, acc)
 smallStep (Plus _ (Throw e), acc) = Just (Throw e, acc)
@@ -251,4 +255,3 @@ steps s = case smallStep s of
 
 prints :: Show a => [a] -> IO ()
 prints = mapM_ print
-
