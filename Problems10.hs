@@ -219,13 +219,20 @@ smallStep (Plus e1 e2, acc) =
 smallStep (Var x, acc) = (Var x, acc)
 smallStep (Lam x e, acc) = (Lam x e, acc)
 smallStep (App (Lam x e) v, acc) | isValue v = (subst x v e, acc)
-smallStep (App e1 e2, acc) = 
-  let (e1', acc') = smallStep (e1, acc) in (App e1' e2, acc')
+smallStep (App e1 e2, acc) =
+  if isValue e1 then
+    let (e2', acc') = smallStep (e2, acc) in (App e1 e2', acc')
+  else
+    let (e1', acc') = smallStep (e1, acc) in (App e1' e2, acc')
 smallStep (Store e, acc) = 
   let (e', acc') = smallStep (e, acc) in (Store e', acc')
 smallStep (Recall, acc) = (Const acc, acc)
 smallStep (Throw e, acc) = 
-  let (e', acc') = smallStep (e, acc) in (Throw e', acc')
+  if isValue e
+  then (Throw e, acc)
+  else 
+    let (e', acc') = smallStep (e, acc) in (Throw e', acc')
+
 smallStep (Catch e y n, acc) = 
   let (e', acc') = smallStep (e, acc) in 
     case e' of
@@ -233,11 +240,12 @@ smallStep (Catch e y n, acc) =
       _ -> (Catch e' y n, acc')
 
 steps :: (Expr, Int) -> [(Expr, Int)]
-steps s = 
-  let (e, acc) = smallStep s
-  in if e == fst s 
+steps s@(e, acc) = 
+  let (e', acc') = smallStep s
+  in if (e', acc') == s 
      then [s] 
-     else s : steps (e, acc)
+     else s : steps (e', acc')
+
 
 prints :: Show a => [a] -> IO ()
 prints = mapM_ print
